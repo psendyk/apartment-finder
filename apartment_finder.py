@@ -62,7 +62,6 @@ class ApartmentFinder():
         for apt in current_data:
             if apt["loc"] not in self.apartments:
                 new_data.append(apt)
-                self.apartments[apt["loc"]] = apt
         new_data = self.filter(new_data)
         return new_data
 
@@ -103,6 +102,7 @@ class ApartmentFinder():
                 "html": 1
             }), { "Content-type": "application/x-www-form-urlencoded" })
         conn.getresponse()
+        self.apartments[apt["loc"]] = apt
 
     def loop(self):
         while True:
@@ -112,10 +112,10 @@ class ApartmentFinder():
                 for apt in new_data:
                     self.notify(apt)
                 self.write_csv(new_data)
-                time.sleep(10 * 60)
-            except Exception as e:
-                print(e)
+                time.sleep(30 * 60)
+            except:
+                continue
 
 if __name__ == "__main__":
-    apt_finder = ApartmentFinder("config.json")
+    apt_finder = ApartmentFinder("config_private.json")
     apt_finder.loop()
