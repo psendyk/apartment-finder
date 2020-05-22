@@ -8,6 +8,8 @@
         "Russian Hill": [[-122.425557, 37.795759], [-122.410321,37.806862]],
         "Nob Hill": [[-122.423452, 37.78853], [-122.407559, 37.798074]]
     },
-    "pushover_API_token": "YOUR_API_KEY",
-    "pushover_user_key": "YOUR_USER_KEY"
+    "from_email": "YOUR EMAIL",
+    "password": "YOUR PASSWORD",
+    "to_email": ["DESTINATION EMAILS"],
+    "run_interval": 20
 }

@@ -1,8 +1,14 @@
 import json
 import time
+import sys
 import csv
 import http.client, urllib
 from craigslist import CraigslistHousing
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formatdate
+import smtplib
+from requests.exceptions import ConnectionError
 
 class ApartmentFinder():
     """
@@ -24,6 +30,8 @@ class ApartmentFinder():
         if apt["bed"] != self.config["bed"]:
             return False
         if apt["price"] > self.config["max_price"]:
+            return False
+        if apt["price"] < self.config["min_price"]:
             return False
         if apt["loc"] is None:
             return False
@@ -75,7 +83,7 @@ class ApartmentFinder():
                     "max_bedrooms": self.config["bed"]
                     }
                 )
-        res = cl.get_results(sort_by='newest', geotagged=True, limit=1000)
+        res = cl.get_results(sort_by='newest', geotagged=True, limit=3000)
         apts = []
         for apt in res:
             apts.append({
@@ -90,18 +98,21 @@ class ApartmentFinder():
         return apts_filtered
 
     def notify(self, apt):
-        msg = "<a href='{}'>{}<a/> in {} for {}".format(apt["url"],
+        text = "<a href='{}'>{}<a/> in {} for {}".format(apt["url"],
             apt["name"], apt["neigh"], apt["price"])
-        conn = http.client.HTTPSConnection("api.pushover.net:443")
-        conn.request("POST", "/1/messages.json",
-            urllib.parse.urlencode({
-                "token": self.config["pushover_API_token"],
-                "user": self.config["pushover_user_key"],
-                "title": "New apartment found!",
-                "message": msg,
-                "html": 1
-            }), { "Content-type": "application/x-www-form-urlencoded" })
-        conn.getresponse()
+        subject = "Found a new apartment!"
+        server = smtplib.SMTP('smtp.gmail.com:587')
+        server.starttls()
+        server.login(self.config["from_email"], self.config["password"])
+        for to_email in self.config["to_email"]:
+            msg = MIMEMultipart()
+            msg["From"] = self.config["from_email"]
+            msg["To"] = to_email
+            msg["Date"] = formatdate(localtime=True)
+            msg["Subject"] = subject
+            msg.attach(MIMEText(text, 'html'))
+            server.sendmail(self.config["from_email"], self.config["to_email"], msg.as_string())
+        server.quit()
         self.apartments[apt["loc"]] = apt
 
     def loop(self):
@@ -112,10 +123,13 @@ class ApartmentFinder():
                 for apt in new_data:
                     self.notify(apt)
                 self.write_csv(new_data)
-                time.sleep(30 * 60)
-            except:
-                continue
+                time.sleep(self.config["run_interval"] * 60)
+            except KeyboardInterrupt:
+                print("Exiting...")
+                sys.exit(0)
+            except ConnectionError:
+                pass
 
 if __name__ == "__main__":
-    apt_finder = ApartmentFinder("config_private.json")
+    apt_finder = ApartmentFinder("config.json")
     apt_finder.loop()
